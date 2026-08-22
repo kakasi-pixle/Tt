@@ -23,16 +23,12 @@ const boxes = new Map();
 
 app.use(express.json());
 
-/*
- * Serve the website
- */
-app.use(
-  express.static(process.cwd())
-);
+/* =========================
+   WEBSITE
+========================= */
 
-/*
- * Homepage
- */
+app.use(express.static(process.cwd()));
+
 app.get("/", (_req, res) => {
   res.sendFile(
     new URL(
@@ -42,9 +38,10 @@ app.get("/", (_req, res) => {
   );
 });
 
-/*
- * Load saved usernames
- */
+/* =========================
+   FILE STORAGE
+========================= */
+
 async function loadUsers() {
   try {
     const data = JSON.parse(
@@ -56,32 +53,38 @@ async function loadUsers() {
     ) {
       addMonitor(username);
     }
+
   } catch {
     await saveUsers();
   }
 }
 
-/*
- * Save usernames
- */
 async function saveUsers() {
-  await fs.writeFile(
-    FILE,
-    JSON.stringify(
-      {
-        usernames: [
-          ...monitors.keys()
-        ]
-      },
-      null,
-      2
-    )
-  );
+  try {
+    await fs.writeFile(
+      FILE,
+      JSON.stringify(
+        {
+          usernames: [
+            ...monitors.keys()
+          ]
+        },
+        null,
+        2
+      )
+    );
+  } catch (error) {
+    console.error(
+      "[SAVE ERROR]",
+      error
+    );
+  }
 }
 
-/*
- * Clean TikTok username
- */
+/* =========================
+   USERNAME
+========================= */
+
 function cleanUsername(value) {
   return String(value || "")
     .trim()
@@ -90,11 +93,10 @@ function cleanUsername(value) {
     .toLowerCase();
 }
 
-/*
- * Search recursively for a real
- * expiry/end timestamp inside
- * the TikTok event payload.
- */
+/* =========================
+   FIND EXPIRY
+========================= */
+
 function findExpiry(
   obj,
   depth = 0
@@ -120,7 +122,10 @@ function findExpiry(
     "expiresAt"
   ];
 
-  for (const key of Object.keys(obj)) {
+  for (
+    const key of Object.keys(obj)
+  ) {
+
     const lower =
       key.toLowerCase();
 
@@ -131,7 +136,9 @@ function findExpiry(
           lower
       )
     ) {
-      const value = obj[key];
+
+      const value =
+        obj[key];
 
       const number =
         Number(value);
@@ -139,6 +146,7 @@ function findExpiry(
       if (
         Number.isFinite(number)
       ) {
+
         let ms = number;
 
         if (
@@ -172,7 +180,10 @@ function findExpiry(
     }
   }
 
-  for (const key of Object.keys(obj)) {
+  for (
+    const key of Object.keys(obj)
+  ) {
+
     const result =
       findExpiry(
         obj[key],
@@ -187,16 +198,21 @@ function findExpiry(
   return null;
 }
 
-/*
- * Current application state
- */
+/* =========================
+   STATE
+========================= */
+
 function getState() {
-  const now = Date.now();
+
+  const now =
+    Date.now();
 
   return {
+
     monitors:
       [...monitors.values()]
         .map(m => ({
+
           username:
             m.username,
 
@@ -211,11 +227,13 @@ function getState() {
 
           error:
             m.error
+
         })),
 
     boxes:
       [...boxes.values()]
         .map(box => ({
+
           ...box,
 
           remaining:
@@ -229,6 +247,7 @@ function getState() {
                   )
                 )
               : null
+
         }))
         .filter(box => {
 
@@ -243,43 +262,60 @@ function getState() {
             box.remaining >=
             MIN_SECONDS
           );
+
         })
+
   };
 }
 
-/*
- * Send data to all connected browsers
- */
+/* =========================
+   WEBSOCKET BROADCAST
+========================= */
+
 function broadcast(data) {
+
   const message =
     JSON.stringify(data);
 
   for (
     const ws of wss.clients
   ) {
+
     if (
       ws.readyState === 1
     ) {
-      ws.send(message);
+
+      try {
+        ws.send(message);
+      } catch {}
     }
   }
 }
 
 function broadcastState() {
+
   broadcast({
+
     type: "state",
-    data: getState()
+
+    data:
+      getState()
+
   });
 }
 
-/*
- * Add TikTok monitor
- */
+/* =========================
+   ADD MONITOR
+========================= */
+
 function addMonitor(
   username
 ) {
+
   username =
-    cleanUsername(username);
+    cleanUsername(
+      username
+    );
 
   if (
     !username ||
@@ -291,30 +327,49 @@ function addMonitor(
   monitors.set(
     username,
     {
+
       username,
-      connection: null,
+
+      connection:
+        null,
+
       status:
         "connecting",
-      viewers: 0,
-      roomId: null,
-      error: null,
-      reconnect: null
+
+      viewers:
+        0,
+
+      roomId:
+        null,
+
+      error:
+        null,
+
+      reconnect:
+        null
+
     }
   );
 
-  connectMonitor(username);
+  connectMonitor(
+    username
+  );
 
   return true;
 }
 
-/*
- * Remove TikTok monitor
- */
+/* =========================
+   REMOVE MONITOR
+========================= */
+
 async function removeMonitor(
   username
 ) {
+
   const monitor =
-    monitors.get(username);
+    monitors.get(
+      username
+    );
 
   if (!monitor) {
     return false;
@@ -323,6 +378,7 @@ async function removeMonitor(
   if (
     monitor.reconnect
   ) {
+
     clearTimeout(
       monitor.reconnect
     );
@@ -331,14 +387,19 @@ async function removeMonitor(
   if (
     monitor.connection
   ) {
+
     try {
+
       await monitor
         .connection
         .disconnect();
+
     } catch {}
   }
 
-  monitors.delete(username);
+  monitors.delete(
+    username
+  );
 
   for (
     const [
@@ -346,11 +407,15 @@ async function removeMonitor(
       box
     ] of boxes
   ) {
+
     if (
       box.username ===
       username
     ) {
-      boxes.delete(key);
+
+      boxes.delete(
+        key
+      );
     }
   }
 
@@ -361,14 +426,18 @@ async function removeMonitor(
   return true;
 }
 
-/*
- * Automatic reconnect
- */
+/* =========================
+   RECONNECT
+========================= */
+
 function reconnect(
   username
 ) {
+
   const monitor =
-    monitors.get(username);
+    monitors.get(
+      username
+    );
 
   if (
     !monitor ||
@@ -380,6 +449,7 @@ function reconnect(
   monitor.reconnect =
     setTimeout(
       () => {
+
         monitor.reconnect =
           null;
 
@@ -388,23 +458,29 @@ function reconnect(
             username
           )
         ) {
+
           connectMonitor(
             username
           );
         }
+
       },
       5000
     );
 }
 
-/*
- * Connect to TikTok LIVE
- */
+/* =========================
+   TIKTOK CONNECTION
+========================= */
+
 async function connectMonitor(
   username
 ) {
+
   const monitor =
-    monitors.get(username);
+    monitors.get(
+      username
+    );
 
   if (!monitor) {
     return;
@@ -413,9 +489,14 @@ async function connectMonitor(
   monitor.status =
     "connecting";
 
-  monitor.error = null;
+  monitor.error =
+    null;
 
   broadcastState();
+
+  console.log(
+    `[CONNECTING] @${username}`
+  );
 
   const connection =
     new TikTokLiveConnection(
@@ -425,12 +506,14 @@ async function connectMonitor(
   monitor.connection =
     connection;
 
-  /*
-   * Connected
-   */
+  /* =====================
+     CONNECTED
+  ===================== */
+
   connection.on(
     "connected",
     info => {
+
       const m =
         monitors.get(
           username
@@ -451,18 +534,41 @@ async function connectMonitor(
         info?.roomId ||
         null;
 
-      m.error = null;
+      m.error =
+        null;
+
+      console.log(
+        `[CONNECTED] @${username}`,
+        info
+      );
 
       broadcastState();
     }
   );
 
-  /*
-   * Viewer count
-   */
+  /* =====================
+     WEBSOCKET CONNECTED
+  ===================== */
+
+  connection.on(
+    "websocketConnected",
+    () => {
+
+      console.log(
+        `[WEBSOCKET CONNECTED] @${username}`
+      );
+
+    }
+  );
+
+  /* =====================
+     ROOM USER
+  ===================== */
+
   connection.on(
     WebcastEvent.ROOM_USER,
     data => {
+
       const m =
         monitors.get(
           username
@@ -478,22 +584,33 @@ async function connectMonitor(
 
       m.viewers =
         Number(
-          data?.viewerCount ??
-            data?.totalUser ??
-            0
+          data?.viewerCount ||
+          0
         );
 
       broadcastState();
     }
   );
 
-  /*
-   * Treasure Chest /
-   * Envelope event
-   */
+  /* =====================
+     ENVELOPE
+  ===================== */
+
   connection.on(
     WebcastEvent.ENVELOPE,
     data => {
+
+      console.log(
+        `[ENVELOPE] @${username}`
+      );
+
+      console.log(
+        JSON.stringify(
+          data,
+          null,
+          2
+        )
+      );
 
       const envelope =
         data?.envelopeInfo ||
@@ -502,7 +619,7 @@ async function connectMonitor(
       const id =
         String(
           envelope.envelopeId ||
-            `${username}-${Date.now()}`
+          `${username}-${Date.now()}`
         );
 
       const key =
@@ -514,14 +631,13 @@ async function connectMonitor(
         return;
       }
 
-      /*
-       * Search entire event
-       * for expiry timestamp.
-       */
       const expiresAt =
-        findExpiry(data);
+        findExpiry(
+          data
+        );
 
       const box = {
+
         id,
 
         username,
@@ -533,13 +649,13 @@ async function connectMonitor(
         diamonds:
           Number(
             envelope.diamondCount ||
-              0
+            0
           ),
 
         people:
           Number(
             envelope.peopleCount ||
-              0
+            0
           ),
 
         createdAt:
@@ -551,6 +667,7 @@ async function connectMonitor(
           expiresAt
             ? "payload"
             : "unavailable"
+
       };
 
       boxes.set(
@@ -558,10 +675,27 @@ async function connectMonitor(
         box
       );
 
+      console.log(
+        `[BOX FOUND] @${username}`,
+        {
+          diamonds:
+            box.diamonds,
+
+          people:
+            box.people,
+
+          expiresAt:
+            box.expiresAt
+        }
+      );
+
       broadcast({
-        type: "box",
+
+        type:
+          "box",
 
         box: {
+
           ...box,
 
           remaining:
@@ -575,19 +709,23 @@ async function connectMonitor(
                   )
                 )
               : null
+
         }
+
       });
 
       broadcastState();
     }
   );
 
-  /*
-   * Disconnected
-   */
+  /* =====================
+     DISCONNECTED
+  ===================== */
+
   connection.on(
     "disconnected",
-    () => {
+    info => {
+
       const m =
         monitors.get(
           username
@@ -601,8 +739,17 @@ async function connectMonitor(
         return;
       }
 
+      console.error(
+        `[DISCONNECTED] @${username}`,
+        info
+      );
+
       m.status =
         "offline";
+
+      m.error =
+        info?.reason ||
+        "TikTok disconnected";
 
       broadcastState();
 
@@ -612,12 +759,14 @@ async function connectMonitor(
     }
   );
 
-  /*
-   * Stream ended
-   */
+  /* =====================
+     STREAM END
+  ===================== */
+
   connection.on(
     "streamEnd",
     () => {
+
       const m =
         monitors.get(
           username
@@ -631,19 +780,28 @@ async function connectMonitor(
         return;
       }
 
+      console.log(
+        `[STREAM END] @${username}`
+      );
+
       m.status =
         "offline";
+
+      m.error =
+        "LIVE ended";
 
       broadcastState();
     }
   );
 
-  /*
-   * Error
-   */
+  /* =====================
+     ERROR
+  ===================== */
+
   connection.on(
     "error",
     error => {
+
       const m =
         monitors.get(
           username
@@ -656,13 +814,23 @@ async function connectMonitor(
       ) {
         return;
       }
+
+      const message =
+        error?.message ||
+        error?.info ||
+        error?.toString() ||
+        "Unknown error";
+
+      console.error(
+        `[TIKTOK ERROR] @${username}:`,
+        error
+      );
 
       m.status =
         "error";
 
       m.error =
-        error?.message ||
-        "Connection error";
+        message;
 
       broadcastState();
 
@@ -672,11 +840,20 @@ async function connectMonitor(
     }
   );
 
-  /*
-   * Start connection
-   */
+  /* =====================
+     CONNECT
+  ===================== */
+
   try {
-    await connection.connect();
+
+    const result =
+      await connection.connect();
+
+    console.log(
+      `[CONNECT RESULT] @${username}`,
+      result
+    );
+
   } catch (error) {
 
     const m =
@@ -688,12 +865,22 @@ async function connectMonitor(
       return;
     }
 
+    const message =
+      error?.message ||
+      error?.info ||
+      error?.toString() ||
+      "Connection failed";
+
+    console.error(
+      `[CONNECT FAILED] @${username}:`,
+      error
+    );
+
     m.status =
-      "offline";
+      "error";
 
     m.error =
-      error?.message ||
-      "Connection failed";
+      message;
 
     broadcastState();
 
@@ -703,24 +890,27 @@ async function connectMonitor(
   }
 }
 
-/*
- * API: State
- */
+/* =========================
+   API
+========================= */
+
 app.get(
   "/api/state",
   (_req, res) => {
+
     res.json(
       getState()
     );
+
   }
 );
 
-/*
- * API: Add users
- */
 app.post(
   "/api/monitors",
-  async (req, res) => {
+  async (
+    req,
+    res
+  ) => {
 
     const usernames =
       Array.isArray(
@@ -736,6 +926,7 @@ app.post(
     for (
       const value of usernames
     ) {
+
       const username =
         cleanUsername(
           value
@@ -746,9 +937,11 @@ app.post(
           username
         )
       ) {
+
         added.push(
           username
         );
+
       }
     }
 
@@ -757,15 +950,16 @@ app.post(
     broadcastState();
 
     res.json({
+
       ok: true,
+
       added
+
     });
+
   }
 );
 
-/*
- * API: Remove user
- */
 app.delete(
   "/api/monitors/:username",
   async (
@@ -784,45 +978,59 @@ app.delete(
       );
 
     res.json({
-      ok: removed
+
+      ok:
+        removed
+
     });
+
   }
 );
 
-/*
- * Health check
- */
 app.get(
   "/api/health",
   (_req, res) => {
+
     res.json({
-      ok: true,
+
+      ok:
+        true,
+
       uptime:
         process.uptime()
+
     });
+
   }
 );
 
-/*
- * WebSocket
- */
+/* =========================
+   WEBSOCKET
+========================= */
+
 wss.on(
   "connection",
   ws => {
 
     ws.send(
       JSON.stringify({
-        type: "state",
+
+        type:
+          "state",
+
         data:
           getState()
+
       })
     );
+
   }
 );
 
-/*
- * Update timers every second
- */
+/* =========================
+   TIMER
+========================= */
+
 setInterval(
   () => {
 
@@ -841,16 +1049,24 @@ setInterval(
         box.expiresAt <=
           now
       ) {
-        boxes.delete(key);
+
+        boxes.delete(
+          key
+        );
+
       }
+
     }
 
     broadcast({
-      type: "tick",
+
+      type:
+        "tick",
 
       boxes:
         [...boxes.values()]
           .map(box => ({
+
             ...box,
 
             remaining:
@@ -864,24 +1080,45 @@ setInterval(
                     )
                   )
                 : null
+
           }))
+
     });
 
   },
   1000
 );
 
-/*
- * Start
- */
+/* =========================
+   START SERVER
+========================= */
+
 await loadUsers();
 
 server.listen(
   PORT,
   "0.0.0.0",
   () => {
+
     console.log(
-      `Server running on port ${PORT}`
+      `================================`
     );
+
+    console.log(
+      `TikTok Live Monitor Started`
+    );
+
+    console.log(
+      `Port: ${PORT}`
+    );
+
+    console.log(
+      `Min seconds: ${MIN_SECONDS}`
+    );
+
+    console.log(
+      `================================`
+    );
+
   }
 );

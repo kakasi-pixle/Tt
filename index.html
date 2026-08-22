@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+
+  <title>LIVE RADAR</title>
+
+  <link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+
+<header>
+  <div class="logo">
+    ⚡ LIVE RADAR
+  </div>
+
+  <div id="connection">
+    ● Connecting
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <div>
+      <small>REAL-TIME TIKTOK MONITOR</small>
+
+      <h1>
+        صناديق الـLIVE
+        <span>لحظيًا</span>
+      </h1>
+
+      <p>
+        أضف الحسابات وشاهد الصناديق والعملات
+        وعدد الأشخاص فور اكتشاف الحدث.
+      </p>
+    </div>
+
+    <div class="stats">
+
+      <div>
+        <b id="users">0</b>
+        <small>Accounts</small>
+      </div>
+
+      <div>
+        <b id="live">0</b>
+        <small>LIVE</small>
+      </div>
+
+      <div>
+        <b id="boxes">0</b>
+        <small>Boxes</small>
+      </div>
+
+    </div>
+  </section>
+
+
+  <section class="add">
+
+    <h2>إضافة حسابات</h2>
+
+    <textarea
+      id="userInput"
+      placeholder="@user1&#10;@user2&#10;@user3"
+    ></textarea>
+
+    <button id="add">
+      ＋ إضافة الحسابات
+    </button>
+
+  </section>
+
+
+  <section class="layout">
+
+    <section class="panel">
+
+      <div class="panel-title">
+        <h2>📦 الصناديق</h2>
+
+        <select id="sort">
+          <option value="time">
+            الأقرب للانتهاء
+          </option>
+
+          <option value="diamonds">
+            أعلى العملات
+          </option>
+
+          <option value="people">
+            أكثر أشخاص
+          </option>
+        </select>
+      </div>
+
+      <div id="boxList"></div>
+
+    </section>
+
+
+    <section class="panel accounts">
+
+      <div class="panel-title">
+        <h2>👤 الحسابات</h2>
+      </div>
+
+      <div id="accountList"></div>
+
+    </section>
+
+  </section>
+
+</main>
+
+<script src="/app.js"></script>
+
+</body>
+</html>

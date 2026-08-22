@@ -1,0 +1,310 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: #f4f7ff;
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      #182b4d,
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 100% 20%,
+      #35162f,
+      transparent 35%
+    ),
+    #070910;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+header {
+  height: 72px;
+  padding: 0 5%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #ffffff12;
+  background: #060811aa;
+  backdrop-filter: blur(15px);
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+#connection {
+  color: #ffd45c;
+  font-size: 12px;
+}
+
+#connection.connected {
+  color: #50e39a;
+}
+
+main {
+  width: min(1200px, 92%);
+  margin: auto;
+  padding: 55px 0;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 30px;
+  align-items: end;
+  margin-bottom: 25px;
+}
+
+.hero small {
+  color: #5ee7ff;
+  letter-spacing: 2px;
+}
+
+h1 {
+  font-size:
+    clamp(38px, 6vw, 70px);
+  line-height: .95;
+  margin: 15px 0;
+}
+
+h1 span {
+  color: #ff5caa;
+}
+
+.hero p {
+  color: #9299aa;
+  max-width: 650px;
+  line-height: 1.8;
+}
+
+.stats {
+  display: flex;
+  gap: 10px;
+}
+
+.stats div {
+  min-width: 85px;
+  padding: 14px;
+  text-align: center;
+  border: 1px solid #ffffff10;
+  background: #ffffff08;
+  border-radius: 15px;
+}
+
+.stats b {
+  display: block;
+  font-size: 25px;
+}
+
+.stats small {
+  color: #8f96aa;
+  letter-spacing: 0;
+}
+
+.add,
+.panel {
+  border: 1px solid #ffffff10;
+  background: #101421c9;
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow:
+    0 25px 70px #0008;
+  backdrop-filter: blur(20px);
+}
+
+.add {
+  margin-bottom: 20px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 85px;
+  resize: vertical;
+  background: #080b13;
+  color: white;
+  border: 1px solid #ffffff12;
+  border-radius: 13px;
+  padding: 13px;
+  font: inherit;
+  outline: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+#add {
+  margin-top: 10px;
+  border: 0;
+  border-radius: 12px;
+  padding: 13px 20px;
+  font-weight: 900;
+  background:
+    linear-gradient(
+      135deg,
+      #5ee7ff,
+      #8b9cff
+    );
+}
+
+.layout {
+  display: grid;
+  grid-template-columns:
+    1.7fr .8fr;
+  gap: 20px;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.panel-title h2 {
+  margin: 0;
+}
+
+select {
+  background: #080b13;
+  color: white;
+  border: 1px solid #ffffff12;
+  border-radius: 9px;
+  padding: 8px;
+}
+
+.box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 16px;
+  margin-bottom: 9px;
+  border: 1px solid #ffffff0e;
+  border-radius: 15px;
+  background: #ffffff05;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user small,
+.account small {
+  display: block;
+  color: #858da0;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.metrics {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.metrics span {
+  background: #0004;
+  border: 1px solid #ffffff0b;
+  padding: 6px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.timer {
+  min-width: 120px;
+  text-align: center;
+}
+
+.timer strong {
+  display: block;
+  font-size: 25px;
+  color: #5ee7ff;
+}
+
+.timer small {
+  color: #ffd45c;
+  font-size: 9px;
+}
+
+.account {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 8px;
+  background: #ffffff05;
+  border: 1px solid #ffffff0b;
+  border-radius: 12px;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-left: 7px;
+  background: #777;
+}
+
+.dot.live {
+  background: #50e39a;
+  box-shadow: 0 0 12px #50e39a;
+}
+
+.dot.connecting {
+  background: #ffd45c;
+}
+
+.account button {
+  background: transparent;
+  color: #777f91;
+  border: 0;
+  font-size: 20px;
+}
+
+.empty {
+  padding: 60px 10px;
+  text-align: center;
+  color: #777f91;
+}
+
+@media (max-width: 800px) {
+
+  .hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stats {
+    width: 100%;
+  }
+
+  .stats div {
+    flex: 1;
+  }
+
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .box {
+    align-items: flex-start;
+  }
+
+  .timer {
+    min-width: 80px;
+  }
+}

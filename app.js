@@ -15,106 +15,178 @@ function escapeHTML(value) {
 }
 
 /* =========================
+   STATS
+========================= */
+
+function updateStats() {
+
+  const users = $("users");
+  const live = $("live");
+  const boxes = $("boxes");
+
+  if (users) {
+    users.textContent =
+      state.monitors.length;
+  }
+
+  if (live) {
+    live.textContent =
+      state.monitors.filter(
+        account =>
+          account.status === "live"
+      ).length;
+  }
+
+  if (boxes) {
+    boxes.textContent =
+      state.boxes.length;
+  }
+}
+
+/* =========================
    ACCOUNTS
 ========================= */
 
 function renderAccounts() {
-  const list = $("accountList");
+
+  const list =
+    $("accountList");
 
   if (!list) return;
 
   if (!state.monitors.length) {
+
     list.innerHTML = `
       <div class="empty">
         لا توجد حسابات مضافة
       </div>
     `;
+
+    updateStats();
     return;
   }
 
-  list.innerHTML = state.monitors.map(account => {
+  list.innerHTML =
+    state.monitors.map(account => {
 
-    let status = "🟡 جاري الاتصال";
-    let className = "connecting";
+      let status =
+        "🟡 جاري الاتصال";
 
-    if (account.status === "live") {
-      status =
-        `🟢 LIVE — ${Number(
-          account.viewers || 0
-        ).toLocaleString()} مشاهد`;
+      let className =
+        "connecting";
 
-      className = "live";
-    }
+      if (
+        account.status === "live"
+      ) {
 
-    if (account.status === "offline") {
-      status = "⚪ Offline";
-      className = "offline";
-    }
+        status =
+          `🟢 LIVE — ${Number(
+            account.viewers || 0
+          ).toLocaleString()} مشاهد`;
 
-    if (account.status === "error") {
-      status = "🔴 فشل الاتصال";
-      className = "error";
-    }
+        className =
+          "live";
+      }
 
-    return `
-      <div class="account ${className}">
+      if (
+        account.status === "offline"
+      ) {
 
-        <div class="account-top">
+        status =
+          "⚪ Offline";
 
-          <strong>
-            @${escapeHTML(account.username)}
-          </strong>
+        className =
+          "offline";
+      }
 
-          <button
-            type="button"
-            class="remove-account"
-            data-username="${escapeHTML(account.username)}"
-          >
-            حذف
-          </button>
+      if (
+        account.status === "error"
+      ) {
+
+        status =
+          "🔴 فشل الاتصال";
+
+        className =
+          "error";
+      }
+
+      return `
+        <div class="account ${className}">
+
+          <div class="account-top">
+
+            <strong>
+              @${escapeHTML(
+                account.username
+              )}
+            </strong>
+
+            <button
+              type="button"
+              class="remove-account"
+              data-username="${escapeHTML(
+                account.username
+              )}"
+            >
+              حذف
+            </button>
+
+          </div>
+
+          <div class="account-status">
+            ${status}
+          </div>
+
+          ${
+            account.error
+              ? `
+                <div class="account-error">
+                  ❌ ${escapeHTML(
+                    account.error
+                  )}
+                </div>
+              `
+              : ""
+          }
+
+          ${
+            account.roomId
+              ? `
+                <div class="room">
+                  Room ID:
+                  ${escapeHTML(
+                    account.roomId
+                  )}
+                </div>
+              `
+              : ""
+          }
 
         </div>
+      `;
 
-        <div class="account-status">
-          ${status}
-        </div>
-
-        ${
-          account.error
-            ? `
-              <div class="account-error">
-                ❌ ${escapeHTML(account.error)}
-              </div>
-            `
-            : ""
-        }
-
-        ${
-          account.roomId
-            ? `
-              <div class="room">
-                Room ID:
-                ${escapeHTML(account.roomId)}
-              </div>
-            `
-            : ""
-        }
-
-      </div>
-    `;
-  }).join("");
+    }).join("");
 
   document
-    .querySelectorAll(".remove-account")
+    .querySelectorAll(
+      ".remove-account"
+    )
     .forEach(button => {
 
-      button.addEventListener("click", () => {
-        removeAccount(
-          button.dataset.username
-        );
-      });
+      button.addEventListener(
+        "click",
+        () => {
+
+          removeAccount(
+            button.dataset.username
+          );
+
+        }
+      );
 
     });
+
+  updateStats();
 }
 
 /* =========================
@@ -122,99 +194,129 @@ function renderAccounts() {
 ========================= */
 
 function renderBoxes() {
-  const list = $("boxList");
+
+  const list =
+    $("boxList");
 
   if (!list) return;
 
   if (!state.boxes.length) {
+
     list.innerHTML = `
       <div class="empty">
         📦 لا توجد صناديق حاليًا
       </div>
     `;
+
+    updateStats();
     return;
   }
 
-  list.innerHTML = state.boxes.map(box => {
+  list.innerHTML =
+    state.boxes.map(box => {
 
-    const remaining =
-      box.remaining == null
-        ? "غير معروف"
-        : `${box.remaining} ثانية`;
+      const remaining =
+        box.remaining == null
+          ? "غير معروف"
+          : `${box.remaining} ثانية`;
 
-    return `
-      <div class="box">
+      return `
+        <div class="box">
 
-        <strong>
-          📦 @${escapeHTML(box.username)}
-        </strong>
+          <strong>
+            📦 @${escapeHTML(
+              box.username
+            )}
+          </strong>
 
-        <div>
-          💎 العملات:
-          ${Number(
-            box.diamonds || 0
-          ).toLocaleString()}
+          <div>
+            💎 العملات:
+            ${Number(
+              box.diamonds || 0
+            ).toLocaleString()}
+          </div>
+
+          <div>
+            👥 الأشخاص:
+            ${Number(
+              box.people || 0
+            ).toLocaleString()}
+          </div>
+
+          <div>
+            ⏱️ ${remaining}
+          </div>
+
         </div>
+      `;
 
-        <div>
-          👥 الأشخاص:
-          ${Number(
-            box.people || 0
-          ).toLocaleString()}
-        </div>
+    }).join("");
 
-        <div>
-          ⏱️ ${remaining}
-        </div>
-
-      </div>
-    `;
-  }).join("");
+  updateStats();
 }
 
 /* =========================
-   ADD ACCOUNT
+   ADD ACCOUNTS
 ========================= */
 
 async function addAccounts() {
 
-  const input = $("userInput");
+  const input =
+    $("userInput");
 
   if (!input) return;
 
-  const usernames = input.value
-    .split(/[\s,\n]+/)
-    .map(x => x.trim())
-    .filter(Boolean);
+  const usernames =
+    input.value
+      .split(/[\s,\n]+/)
+      .map(x => x.trim())
+      .filter(Boolean);
 
   if (!usernames.length) {
     return;
   }
 
   /*
-   * أظهر الحساب فورًا.
-   * لا ننتظر السيرفر.
+   * أظهر الحساب فورًا
    */
-  for (const username of usernames) {
+
+  for (
+    const username of usernames
+  ) {
+
+    const clean =
+      username
+        .replace(/^@/, "")
+        .toLowerCase();
 
     const exists =
       state.monitors.some(
-        m =>
-          m.username.toLowerCase() ===
-          username
-            .replace(/^@/, "")
-            .toLowerCase()
+        account =>
+          account.username
+            .toLowerCase() === clean
       );
 
     if (!exists) {
+
       state.monitors.push({
+
         username:
           username.replace(/^@/, ""),
-        status: "connecting",
-        viewers: 0,
-        roomId: null,
-        error: null
+
+        status:
+          "connecting",
+
+        viewers:
+          0,
+
+        roomId:
+          null,
+
+        error:
+          null
+
       });
+
     }
   }
 
@@ -224,21 +326,26 @@ async function addAccounts() {
 
   try {
 
-    const response = await fetch(
-      "/api/monitors",
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        "/api/monitors",
+        {
 
-        headers: {
-          "Content-Type":
-            "application/json"
-        },
+          method:
+            "POST",
 
-        body: JSON.stringify({
-          usernames
-        })
-      }
-    );
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              usernames
+            })
+
+        }
+      );
 
     const text =
       await response.text();
@@ -246,12 +353,17 @@ async function addAccounts() {
     let result;
 
     try {
-      result = JSON.parse(text);
+
+      result =
+        JSON.parse(text);
+
     } catch {
+
       result = {
         ok: false,
         error: text
       };
+
     }
 
     if (!response.ok) {
@@ -265,15 +377,15 @@ async function addAccounts() {
       return;
     }
 
-    /*
-     * لو السيرفر أعاد خطأ
-     */
     if (
       result.errors &&
       result.errors.length
     ) {
 
-      for (const item of result.errors) {
+      for (
+        const item
+        of result.errors
+      ) {
 
         setAccountError(
           [item.username],
@@ -281,6 +393,7 @@ async function addAccounts() {
         );
 
       }
+
     }
 
   } catch (error) {
@@ -290,11 +403,12 @@ async function addAccounts() {
       "تعذر الاتصال بالسيرفر: " +
       error.message
     );
+
   }
 }
 
 /* =========================
-   LOCAL ERROR
+   ERROR
 ========================= */
 
 function setAccountError(
@@ -302,7 +416,9 @@ function setAccountError(
   error
 ) {
 
-  for (const username of usernames) {
+  for (
+    const username of usernames
+  ) {
 
     const clean =
       username
@@ -312,15 +428,20 @@ function setAccountError(
     const account =
       state.monitors.find(
         m =>
-          m.username.toLowerCase() ===
-          clean
+          m.username
+            .toLowerCase() === clean
       );
 
     if (account) {
 
-      account.status = "error";
-      account.error = error;
+      account.status =
+        "error";
+
+      account.error =
+        error;
+
     }
+
   }
 
   renderAccounts();
@@ -339,16 +460,20 @@ async function removeAccount(
     const response =
       await fetch(
         "/api/monitors/" +
-        encodeURIComponent(username),
+        encodeURIComponent(
+          username
+        ),
         {
           method: "DELETE"
         }
       );
 
     if (!response.ok) {
+
       throw new Error(
         `HTTP ${response.status}`
       );
+
     }
 
     state.monitors =
@@ -362,21 +487,12 @@ async function removeAccount(
 
   } catch (error) {
 
-    const account =
-      state.monitors.find(
-        m =>
-          m.username.toLowerCase() ===
-          username.toLowerCase()
-      );
+    setAccountError(
+      [username],
+      "فشل الحذف: " +
+      error.message
+    );
 
-    if (account) {
-      account.status = "error";
-      account.error =
-        "فشل الحذف: " +
-        error.message;
-    }
-
-    renderAccounts();
   }
 }
 
@@ -384,13 +500,16 @@ async function removeAccount(
    ADD BUTTON
 ========================= */
 
-const addButton = $("add");
+const addButton =
+  $("add");
 
 if (addButton) {
+
   addButton.addEventListener(
     "click",
     addAccounts
   );
+
 }
 
 /* =========================
@@ -411,140 +530,160 @@ function connect() {
 
   socket.onopen = () => {
 
-    console.log(
-      "WebSocket connected"
-    );
+    const connection =
+      $("connection");
+
+    if (connection) {
+
+      connection.textContent =
+        "● Connected";
+
+      connection.className =
+        "connected";
+
+    }
+
   };
 
-  socket.onmessage = event => {
+  socket.onmessage =
+    event => {
 
-    try {
+      try {
 
-      const message =
-        JSON.parse(event.data);
+        const message =
+          JSON.parse(
+            event.data
+          );
 
-      /*
-       * SERVER STATE
-       */
-      if (
-        message.type === "state"
-      ) {
+        /* STATE */
 
-        const serverMonitors =
-          Array.isArray(
-            message.data?.monitors
-          )
-            ? message.data.monitors
-            : [];
-
-        /*
-         * لا نمسح الحسابات المحلية
-         * التي لم يصلها السيرفر بعد.
-         */
-        for (
-          const serverAccount
-          of serverMonitors
+        if (
+          message.type ===
+          "state"
         ) {
 
-          const index =
-            state.monitors.findIndex(
-              m =>
-                m.username.toLowerCase() ===
-                String(
-                  serverAccount.username
-                ).toLowerCase()
-            );
+          const serverAccounts =
+            message.data?.monitors ||
+            [];
 
-          if (index === -1) {
+          /*
+           * تحديث الحسابات الموجودة
+           */
 
-            state.monitors.push(
-              serverAccount
-            );
+          for (
+            const account
+            of serverAccounts
+          ) {
 
-          } else {
+            const index =
+              state.monitors.findIndex(
+                m =>
+                  m.username
+                    .toLowerCase() ===
+                  String(
+                    account.username
+                  ).toLowerCase()
+              );
 
-            state.monitors[index] =
-              serverAccount;
+            if (index === -1) {
+
+              state.monitors.push(
+                account
+              );
+
+            } else {
+
+              state.monitors[index] =
+                account;
+
+            }
+
           }
+
+          state.boxes =
+            message.data?.boxes ||
+            [];
+
+          renderAccounts();
+          renderBoxes();
+
         }
 
-        state.boxes =
-          Array.isArray(
-            message.data?.boxes
-          )
-            ? message.data.boxes
-            : [];
+        /* NEW BOX */
 
-        renderAccounts();
-        renderBoxes();
-      }
+        else if (
+          message.type ===
+          "box"
+        ) {
 
-      /*
-       * NEW BOX
-       */
-      else if (
-        message.type === "box"
-      ) {
+          if (
+            message.box
+          ) {
 
-        if (message.box) {
+            const exists =
+              state.boxes.some(
+                box =>
+                  box.id ===
+                  message.box.id
+              );
 
-          const exists =
-            state.boxes.some(
-              b =>
-                b.id ===
-                message.box.id
-            );
+            if (!exists) {
 
-          if (!exists) {
-            state.boxes.push(
-              message.box
-            );
+              state.boxes.push(
+                message.box
+              );
+
+            }
+
           }
+
+          renderBoxes();
+
         }
 
-        renderBoxes();
+        /* TIMER */
+
+        else if (
+          message.type ===
+          "tick"
+        ) {
+
+          state.boxes =
+            message.boxes ||
+            [];
+
+          renderBoxes();
+
+        }
+
+      } catch (error) {
+
+        console.error(error);
+
       }
 
-      /*
-       * TIMER
-       */
-      else if (
-        message.type === "tick"
-      ) {
-
-        state.boxes =
-          Array.isArray(
-            message.boxes
-          )
-            ? message.boxes
-            : [];
-
-        renderBoxes();
-      }
-
-    } catch (error) {
-
-      console.error(
-        "WebSocket message error:",
-        error
-      );
-    }
-  };
-
-  socket.onerror = error => {
-
-    console.error(
-      "WebSocket error:",
-      error
-    );
-  };
+    };
 
   socket.onclose = () => {
+
+    const connection =
+      $("connection");
+
+    if (connection) {
+
+      connection.textContent =
+        "● Reconnecting...";
+
+      connection.className =
+        "";
+
+    }
 
     setTimeout(
       connect,
       2000
     );
+
   };
 }
 

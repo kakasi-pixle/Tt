@@ -1,6 +1,8 @@
 import express from "express";
 import fs from "node:fs/promises";
 import http from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import {
   TikTokLiveConnection,
@@ -8,15 +10,16 @@ import {
 } from "tiktok-live-connector";
 
 const PORT = Number(process.env.PORT || 3000);
-const MIN_SECONDS = Number(
-  process.env.MIN_SECONDS || 30
-);
+const MIN_SECONDS = Number(process.env.MIN_SECONDS || 30);
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-const FILE = "./monitors.json";
+const DATA_FILE = path.join(__dirname, "monitors.json");
 
 const monitors = new Map();
 const boxes = new Map();
@@ -27,62 +30,16 @@ app.use(express.json());
    WEBSITE
 ========================= */
 
-app.use(express.static(process.cwd()));
+app.use(express.static(__dirname));
 
 app.get("/", (_req, res) => {
   res.sendFile(
-    new URL(
-      "./index.html",
-      import.meta.url
-    ).pathname
+    path.join(__dirname, "index.html")
   );
 });
 
 /* =========================
-   FILE STORAGE
-========================= */
-
-async function loadUsers() {
-  try {
-    const data = JSON.parse(
-      await fs.readFile(FILE, "utf8")
-    );
-
-    for (
-      const username of data.usernames || []
-    ) {
-      addMonitor(username);
-    }
-
-  } catch {
-    await saveUsers();
-  }
-}
-
-async function saveUsers() {
-  try {
-    await fs.writeFile(
-      FILE,
-      JSON.stringify(
-        {
-          usernames: [
-            ...monitors.keys()
-          ]
-        },
-        null,
-        2
-      )
-    );
-  } catch (error) {
-    console.error(
-      "[SAVE ERROR]",
-      error
-    );
-  }
-}
-
-/* =========================
-   USERNAME
+   HELPERS
 ========================= */
 
 function cleanUsername(value) {
@@ -93,14 +50,133 @@ function cleanUsername(value) {
     .toLowerCase();
 }
 
+function errorText(error) {
+  if (!error) {
+    return "Unknown error";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error instanceof Error) {
+    return error.stack || error.message;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function sendToAll(data) {
+  const message = JSON.stringify(data);
+
+  for (const ws of wss.clients) {
+    if (ws.readyState === 1) {
+      try {
+        ws.send(message);
+      } catch {}
+    }
+  }
+}
+
+function broadcastState() {
+  sendToAll({
+    type: "state",
+    data: getState()
+  });
+}
+
 /* =========================
-   FIND EXPIRY
+   STATE
 ========================= */
 
-function findExpiry(
-  obj,
-  depth = 0
-) {
+function getState() {
+  const now = Date.now();
+
+  const monitorList = [...monitors.values()].map(m => ({
+    username: m.username,
+    status: m.status,
+    viewers: m.viewers || 0,
+    roomId: m.roomId || null,
+    error: m.error || null,
+    lastUpdate: m.lastUpdate || null
+  }));
+
+  const boxList = [...boxes.values()]
+    .map(box => ({
+      ...box,
+      remaining: box.expiresAt
+        ? Math.max(
+            0,
+            Math.ceil(
+              (box.expiresAt - now) / 1000
+            )
+          )
+        : null
+    }))
+    .filter(box => {
+      if (box.remaining === null) {
+        return true;
+      }
+
+      return box.remaining >= MIN_SECONDS;
+    });
+
+  return {
+    monitors: monitorList,
+    boxes: boxList
+  };
+}
+
+/* =========================
+   STORAGE
+========================= */
+
+async function saveUsers() {
+  try {
+    await fs.writeFile(
+      DATA_FILE,
+      JSON.stringify(
+        {
+          usernames: [...monitors.keys()]
+        },
+        null,
+        2
+      )
+    );
+  } catch (error) {
+    console.error(
+      "SAVE ERROR:",
+      errorText(error)
+    );
+  }
+}
+
+async function loadUsers() {
+  try {
+    const raw = await fs.readFile(
+      DATA_FILE,
+      "utf8"
+    );
+
+    const data = JSON.parse(raw);
+
+    for (const username of data.usernames || []) {
+      addMonitor(username);
+    }
+  } catch {
+    await saveUsers();
+  }
+}
+
+/* =========================
+   EXPIRY SEARCH
+========================= */
+
+function findExpiry(obj, depth = 0) {
   if (
     !obj ||
     typeof obj !== "object" ||
@@ -109,7 +185,7 @@ function findExpiry(
     return null;
   }
 
-  const names = [
+  const possibleKeys = [
     "expireTime",
     "expiryTime",
     "expirationTime",
@@ -122,54 +198,34 @@ function findExpiry(
     "expiresAt"
   ];
 
-  for (
-    const key of Object.keys(obj)
-  ) {
-
-    const lower =
-      key.toLowerCase();
+  for (const key of Object.keys(obj)) {
+    const value = obj[key];
 
     if (
-      names.some(
-        name =>
-          name.toLowerCase() ===
-          lower
+      possibleKeys.some(
+        x =>
+          x.toLowerCase() ===
+          key.toLowerCase()
       )
     ) {
+      const n = Number(value);
 
-      const value =
-        obj[key];
+      if (Number.isFinite(n)) {
+        let ms = n;
 
-      const number =
-        Number(value);
-
-      if (
-        Number.isFinite(number)
-      ) {
-
-        let ms = number;
-
-        if (
-          number < 100000000000
-        ) {
-          ms =
-            number * 1000;
+        if (n < 100000000000) {
+          ms = n * 1000;
         }
 
         if (
           ms > Date.now() &&
-          ms <
-            Date.now() +
-              60 *
-                60 *
-                1000
+          ms < Date.now() + 3600000
         ) {
           return ms;
         }
       }
 
-      const parsed =
-        Date.parse(value);
+      const parsed = Date.parse(value);
 
       if (
         Number.isFinite(parsed) &&
@@ -180,15 +236,11 @@ function findExpiry(
     }
   }
 
-  for (
-    const key of Object.keys(obj)
-  ) {
-
-    const result =
-      findExpiry(
-        obj[key],
-        depth + 1
-      );
+  for (const key of Object.keys(obj)) {
+    const result = findExpiry(
+      obj[key],
+      depth + 1
+    );
 
     if (result) {
       return result;
@@ -199,228 +251,70 @@ function findExpiry(
 }
 
 /* =========================
-   STATE
+   MONITOR
 ========================= */
 
-function getState() {
+function addMonitor(username) {
+  username = cleanUsername(username);
 
-  const now =
-    Date.now();
-
-  return {
-
-    monitors:
-      [...monitors.values()]
-        .map(m => ({
-
-          username:
-            m.username,
-
-          status:
-            m.status,
-
-          viewers:
-            m.viewers,
-
-          roomId:
-            m.roomId,
-
-          error:
-            m.error
-
-        })),
-
-    boxes:
-      [...boxes.values()]
-        .map(box => ({
-
-          ...box,
-
-          remaining:
-            box.expiresAt
-              ? Math.max(
-                  0,
-                  Math.ceil(
-                    (box.expiresAt -
-                      now) /
-                      1000
-                  )
-                )
-              : null
-
-        }))
-        .filter(box => {
-
-          if (
-            box.remaining ===
-            null
-          ) {
-            return true;
-          }
-
-          return (
-            box.remaining >=
-            MIN_SECONDS
-          );
-
-        })
-
-  };
-}
-
-/* =========================
-   WEBSOCKET BROADCAST
-========================= */
-
-function broadcast(data) {
-
-  const message =
-    JSON.stringify(data);
-
-  for (
-    const ws of wss.clients
-  ) {
-
-    if (
-      ws.readyState === 1
-    ) {
-
-      try {
-        ws.send(message);
-      } catch {}
-    }
-  }
-}
-
-function broadcastState() {
-
-  broadcast({
-
-    type: "state",
-
-    data:
-      getState()
-
-  });
-}
-
-/* =========================
-   ADD MONITOR
-========================= */
-
-function addMonitor(
-  username
-) {
-
-  username =
-    cleanUsername(
-      username
-    );
-
-  if (
-    !username ||
-    monitors.has(username)
-  ) {
+  if (!username) {
     return false;
   }
 
-  monitors.set(
+  if (monitors.has(username)) {
+    return false;
+  }
+
+  monitors.set(username, {
     username,
-    {
+    status: "connecting",
+    viewers: 0,
+    roomId: null,
+    error: null,
+    connection: null,
+    reconnectTimer: null,
+    lastUpdate: Date.now()
+  });
 
-      username,
-
-      connection:
-        null,
-
-      status:
-        "connecting",
-
-      viewers:
-        0,
-
-      roomId:
-        null,
-
-      error:
-        null,
-
-      reconnect:
-        null
-
-    }
-  );
-
-  connectMonitor(
-    username
-  );
+  connectMonitor(username);
 
   return true;
 }
 
 /* =========================
-   REMOVE MONITOR
+   REMOVE
 ========================= */
 
-async function removeMonitor(
-  username
-) {
+async function removeMonitor(username) {
+  username = cleanUsername(username);
 
-  const monitor =
-    monitors.get(
-      username
-    );
+  const monitor = monitors.get(username);
 
   if (!monitor) {
     return false;
   }
 
-  if (
-    monitor.reconnect
-  ) {
-
+  if (monitor.reconnectTimer) {
     clearTimeout(
-      monitor.reconnect
+      monitor.reconnectTimer
     );
   }
 
-  if (
-    monitor.connection
-  ) {
-
+  if (monitor.connection) {
     try {
-
-      await monitor
-        .connection
-        .disconnect();
-
+      await monitor.connection.disconnect();
     } catch {}
   }
 
-  monitors.delete(
-    username
-  );
+  monitors.delete(username);
 
-  for (
-    const [
-      key,
-      box
-    ] of boxes
-  ) {
-
-    if (
-      box.username ===
-      username
-    ) {
-
-      boxes.delete(
-        key
-      );
+  for (const [key, box] of boxes) {
+    if (box.username === username) {
+      boxes.delete(key);
     }
   }
 
   await saveUsers();
-
   broadcastState();
 
   return true;
@@ -430,154 +324,151 @@ async function removeMonitor(
    RECONNECT
 ========================= */
 
-function reconnect(
-  username
-) {
-
-  const monitor =
-    monitors.get(
-      username
-    );
-
-  if (
-    !monitor ||
-    monitor.reconnect
-  ) {
-    return;
-  }
-
-  monitor.reconnect =
-    setTimeout(
-      () => {
-
-        monitor.reconnect =
-          null;
-
-        if (
-          monitors.has(
-            username
-          )
-        ) {
-
-          connectMonitor(
-            username
-          );
-        }
-
-      },
-      5000
-    );
-}
-
-/* =========================
-   TIKTOK CONNECTION
-========================= */
-
-async function connectMonitor(
-  username
-) {
-
-  const monitor =
-    monitors.get(
-      username
-    );
+function scheduleReconnect(username) {
+  const monitor = monitors.get(username);
 
   if (!monitor) {
     return;
   }
 
-  monitor.status =
-    "connecting";
+  if (monitor.reconnectTimer) {
+    return;
+  }
 
-  monitor.error =
-    null;
+  monitor.reconnectTimer = setTimeout(() => {
+    monitor.reconnectTimer = null;
+
+    if (monitors.has(username)) {
+      connectMonitor(username);
+    }
+  }, 5000);
+}
+
+/* =========================
+   TIKTOK
+========================= */
+
+async function connectMonitor(username) {
+  const monitor = monitors.get(username);
+
+  if (!monitor) {
+    return;
+  }
+
+  monitor.status = "connecting";
+  monitor.error = null;
+  monitor.lastUpdate = Date.now();
 
   broadcastState();
 
-  console.log(
-    `[CONNECTING] @${username}`
-  );
+  let connection;
 
-  const connection =
-    new TikTokLiveConnection(
-      username
-    );
+  try {
+    connection =
+      new TikTokLiveConnection(
+        username
+      );
 
-  monitor.connection =
-    connection;
+    monitor.connection = connection;
 
-  /* =====================
-     CONNECTED
-  ===================== */
+  } catch (error) {
+    monitor.status = "error";
+    monitor.error = errorText(error);
+    monitor.lastUpdate = Date.now();
+
+    broadcastState();
+
+    scheduleReconnect(username);
+    return;
+  }
+
+  /* CONNECTED */
 
   connection.on(
     "connected",
     info => {
-
-      const m =
-        monitors.get(
-          username
-        );
+      const m = monitors.get(username);
 
       if (
         !m ||
-        m.connection !==
-          connection
+        m.connection !== connection
       ) {
         return;
       }
 
-      m.status =
-        "live";
-
+      m.status = "live";
+      m.error = null;
       m.roomId =
-        info?.roomId ||
-        null;
-
-      m.error =
-        null;
-
-      console.log(
-        `[CONNECTED] @${username}`,
-        info
-      );
+        info?.roomId || null;
+      m.lastUpdate = Date.now();
 
       broadcastState();
     }
   );
 
-  /* =====================
-     WEBSOCKET CONNECTED
-  ===================== */
+  /* ERROR */
 
   connection.on(
-    "websocketConnected",
-    () => {
+    "error",
+    error => {
+      const m = monitors.get(username);
 
-      console.log(
-        `[WEBSOCKET CONNECTED] @${username}`
-      );
+      if (
+        !m ||
+        m.connection !== connection
+      ) {
+        return;
+      }
 
+      m.status = "error";
+      m.error = errorText(error);
+      m.lastUpdate = Date.now();
+
+      broadcastState();
+
+      scheduleReconnect(username);
     }
   );
 
-  /* =====================
-     ROOM USER
-  ===================== */
+  /* DISCONNECTED */
+
+  connection.on(
+    "disconnected",
+    info => {
+      const m = monitors.get(username);
+
+      if (
+        !m ||
+        m.connection !== connection
+      ) {
+        return;
+      }
+
+      m.status = "offline";
+
+      m.error =
+        info
+          ? errorText(info)
+          : "TikTok disconnected";
+
+      m.lastUpdate = Date.now();
+
+      broadcastState();
+
+      scheduleReconnect(username);
+    }
+  );
+
+  /* ROOM USERS */
 
   connection.on(
     WebcastEvent.ROOM_USER,
     data => {
-
-      const m =
-        monitors.get(
-          username
-        );
+      const m = monitors.get(username);
 
       if (
         !m ||
-        m.connection !==
-          connection
+        m.connection !== connection
       ) {
         return;
       }
@@ -585,36 +476,23 @@ async function connectMonitor(
       m.viewers =
         Number(
           data?.viewerCount ||
+          data?.totalUser ||
           0
         );
+
+      m.lastUpdate = Date.now();
 
       broadcastState();
     }
   );
 
-  /* =====================
-     ENVELOPE
-  ===================== */
+  /* ENVELOPE */
 
   connection.on(
     WebcastEvent.ENVELOPE,
     data => {
-
-      console.log(
-        `[ENVELOPE] @${username}`
-      );
-
-      console.log(
-        JSON.stringify(
-          data,
-          null,
-          2
-        )
-      );
-
       const envelope =
-        data?.envelopeInfo ||
-        {};
+        data?.envelopeInfo || {};
 
       const id =
         String(
@@ -625,21 +503,15 @@ async function connectMonitor(
       const key =
         `${username}:${id}`;
 
-      if (
-        boxes.has(key)
-      ) {
+      if (boxes.has(key)) {
         return;
       }
 
       const expiresAt =
-        findExpiry(
-          data
-        );
+        findExpiry(data);
 
       const box = {
-
         id,
-
         username,
 
         sender:
@@ -648,18 +520,15 @@ async function connectMonitor(
 
         diamonds:
           Number(
-            envelope.diamondCount ||
-            0
+            envelope.diamondCount || 0
           ),
 
         people:
           Number(
-            envelope.peopleCount ||
-            0
+            envelope.peopleCount || 0
           ),
 
-        createdAt:
-          Date.now(),
+        createdAt: Date.now(),
 
         expiresAt,
 
@@ -667,226 +536,49 @@ async function connectMonitor(
           expiresAt
             ? "payload"
             : "unavailable"
-
       };
 
-      boxes.set(
-        key,
-        box
-      );
+      boxes.set(key, box);
 
-      console.log(
-        `[BOX FOUND] @${username}`,
-        {
-          diamonds:
-            box.diamonds,
-
-          people:
-            box.people,
-
-          expiresAt:
-            box.expiresAt
-        }
-      );
-
-      broadcast({
-
-        type:
-          "box",
-
+      sendToAll({
+        type: "box",
         box: {
-
           ...box,
-
-          remaining:
-            expiresAt
-              ? Math.max(
-                  0,
-                  Math.ceil(
-                    (expiresAt -
-                      Date.now()) /
-                      1000
-                  )
+          remaining: expiresAt
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (expiresAt - Date.now()) /
+                  1000
                 )
-              : null
-
+              )
+            : null
         }
-
       });
 
       broadcastState();
     }
   );
 
-  /* =====================
-     DISCONNECTED
-  ===================== */
-
-  connection.on(
-    "disconnected",
-    info => {
-
-      const m =
-        monitors.get(
-          username
-        );
-
-      if (
-        !m ||
-        m.connection !==
-          connection
-      ) {
-        return;
-      }
-
-      console.error(
-        `[DISCONNECTED] @${username}`,
-        info
-      );
-
-      m.status =
-        "offline";
-
-      m.error =
-        info?.reason ||
-        "TikTok disconnected";
-
-      broadcastState();
-
-      reconnect(
-        username
-      );
-    }
-  );
-
-  /* =====================
-     STREAM END
-  ===================== */
-
-  connection.on(
-    "streamEnd",
-    () => {
-
-      const m =
-        monitors.get(
-          username
-        );
-
-      if (
-        !m ||
-        m.connection !==
-          connection
-      ) {
-        return;
-      }
-
-      console.log(
-        `[STREAM END] @${username}`
-      );
-
-      m.status =
-        "offline";
-
-      m.error =
-        "LIVE ended";
-
-      broadcastState();
-    }
-  );
-
-  /* =====================
-     ERROR
-  ===================== */
-
-  connection.on(
-    "error",
-    error => {
-
-      const m =
-        monitors.get(
-          username
-        );
-
-      if (
-        !m ||
-        m.connection !==
-          connection
-      ) {
-        return;
-      }
-
-      const message =
-        error?.message ||
-        error?.info ||
-        error?.toString() ||
-        "Unknown error";
-
-      console.error(
-        `[TIKTOK ERROR] @${username}:`,
-        error
-      );
-
-      m.status =
-        "error";
-
-      m.error =
-        message;
-
-      broadcastState();
-
-      reconnect(
-        username
-      );
-    }
-  );
-
-  /* =====================
-     CONNECT
-  ===================== */
+  /* CONNECT */
 
   try {
-
-    const result =
-      await connection.connect();
-
-    console.log(
-      `[CONNECT RESULT] @${username}`,
-      result
-    );
+    await connection.connect();
 
   } catch (error) {
-
-    const m =
-      monitors.get(
-        username
-      );
+    const m = monitors.get(username);
 
     if (!m) {
       return;
     }
 
-    const message =
-      error?.message ||
-      error?.info ||
-      error?.toString() ||
-      "Connection failed";
-
-    console.error(
-      `[CONNECT FAILED] @${username}:`,
-      error
-    );
-
-    m.status =
-      "error";
-
-    m.error =
-      message;
+    m.status = "error";
+    m.error = errorText(error);
+    m.lastUpdate = Date.now();
 
     broadcastState();
 
-    reconnect(
-      username
-    );
+    scheduleReconnect(username);
   }
 }
 
@@ -897,21 +589,13 @@ async function connectMonitor(
 app.get(
   "/api/state",
   (_req, res) => {
-
-    res.json(
-      getState()
-    );
-
+    res.json(getState());
   }
 );
 
 app.post(
   "/api/monitors",
-  async (
-    req,
-    res
-  ) => {
-
+  async (req, res) => {
     const usernames =
       Array.isArray(
         req.body?.usernames
@@ -922,85 +606,72 @@ app.post(
           ];
 
     const added = [];
+    const errors = [];
 
-    for (
-      const value of usernames
-    ) {
-
+    for (const value of usernames) {
       const username =
-        cleanUsername(
-          value
-        );
+        cleanUsername(value);
 
-      if (
-        addMonitor(
-          username
-        )
-      ) {
+      if (!username) {
+        errors.push({
+          username: value,
+          error: "Username is empty"
+        });
 
-        added.push(
-          username
-        );
+        continue;
+      }
 
+      if (monitors.has(username)) {
+        errors.push({
+          username,
+          error: "Already monitoring"
+        });
+
+        continue;
+      }
+
+      if (addMonitor(username)) {
+        added.push(username);
       }
     }
 
     await saveUsers();
-
     broadcastState();
 
     res.json({
-
       ok: true,
-
-      added
-
+      added,
+      errors
     });
-
   }
 );
 
 app.delete(
   "/api/monitors/:username",
-  async (
-    req,
-    res
-  ) => {
-
-    const username =
-      cleanUsername(
+  async (req, res) => {
+    const removed =
+      await removeMonitor(
         req.params.username
       );
 
-    const removed =
-      await removeMonitor(
-        username
-      );
-
     res.json({
-
-      ok:
-        removed
-
+      ok: removed
     });
-
   }
 );
+
+/* =========================
+   HEALTH
+========================= */
 
 app.get(
   "/api/health",
   (_req, res) => {
-
     res.json({
-
-      ok:
-        true,
-
-      uptime:
-        process.uptime()
-
+      ok: true,
+      uptime: process.uptime(),
+      node: process.version
     });
-
   }
 );
 
@@ -1011,19 +682,12 @@ app.get(
 wss.on(
   "connection",
   ws => {
-
     ws.send(
       JSON.stringify({
-
-        type:
-          "state",
-
-        data:
-          getState()
-
+        type: "state",
+        data: getState()
       })
     );
-
   }
 );
 
@@ -1031,66 +695,39 @@ wss.on(
    TIMER
 ========================= */
 
-setInterval(
-  () => {
+setInterval(() => {
+  const now = Date.now();
 
-    const now =
-      Date.now();
-
-    for (
-      const [
-        key,
-        box
-      ] of boxes
+  for (const [key, box] of boxes) {
+    if (
+      box.expiresAt &&
+      box.expiresAt <= now
     ) {
-
-      if (
-        box.expiresAt &&
-        box.expiresAt <=
-          now
-      ) {
-
-        boxes.delete(
-          key
-        );
-
-      }
-
+      boxes.delete(key);
     }
+  }
 
-    broadcast({
-
-      type:
-        "tick",
-
-      boxes:
-        [...boxes.values()]
-          .map(box => ({
-
-            ...box,
-
-            remaining:
-              box.expiresAt
-                ? Math.max(
-                    0,
-                    Math.ceil(
-                      (box.expiresAt -
-                        now) /
-                        1000
-                    )
-                  )
-                : null
-
-          }))
-
-    });
-
-  },
-  1000
-);
+  sendToAll({
+    type: "tick",
+    boxes:
+      [...boxes.values()].map(box => ({
+        ...box,
+        remaining:
+          box.expiresAt
+            ? Math.max(
+                0,
+                Math.ceil(
+                  (box.expiresAt - now) /
+                  1000
+                )
+              )
+            : null
+      }))
+  });
+}, 1000);
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 
 await loadUsers();
@@ -1099,26 +736,8 @@ server.listen(
   PORT,
   "0.0.0.0",
   () => {
-
     console.log(
-      `================================`
+      `Server running on port ${PORT}`
     );
-
-    console.log(
-      `TikTok Live Monitor Started`
-    );
-
-    console.log(
-      `Port: ${PORT}`
-    );
-
-    console.log(
-      `Min seconds: ${MIN_SECONDS}`
-    );
-
-    console.log(
-      `================================`
-    );
-
   }
 );

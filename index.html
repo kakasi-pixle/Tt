@@ -1,29 +1,203 @@
-function updateStats() {
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
 
-  const users =
-    document.getElementById("users");
+<head>
+  <meta charset="UTF-8">
 
-  const live =
-    document.getElementById("live");
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-  const boxes =
-    document.getElementById("boxes");
+  <title>LIVE RADAR</title>
 
-  if (users) {
-    users.textContent =
-      state.monitors.length;
-  }
+  <link
+    rel="stylesheet"
+    href="/styles.css"
+  >
+</head>
 
-  if (live) {
-    live.textContent =
-      state.monitors.filter(
-        account =>
-          account.status === "live"
-      ).length;
-  }
+<body>
 
-  if (boxes) {
-    boxes.textContent =
-      state.boxes.length;
-  }
-}
+<header>
+
+  <div class="logo">
+    ⚡ LIVE RADAR
+  </div>
+
+  <div
+    id="connection"
+    class="connecting"
+  >
+    ● Connecting
+  </div>
+
+</header>
+
+
+<main>
+
+  <!-- HERO -->
+
+  <section class="hero">
+
+    <div>
+
+      <small>
+        REAL-TIME TIKTOK MONITOR
+      </small>
+
+      <h1>
+        صناديق الـLIVE
+        <span>لحظيًا</span>
+      </h1>
+
+      <p>
+        أضف الحسابات وشاهد حالة البث
+        والصناديق والعملات فور اكتشافها.
+      </p>
+
+    </div>
+
+
+    <!-- STATS -->
+
+    <div class="stats">
+
+      <div>
+        <b id="users">0</b>
+        <small>Accounts</small>
+      </div>
+
+      <div>
+        <b id="live">0</b>
+        <small>LIVE</small>
+      </div>
+
+      <div>
+        <b id="boxes">0</b>
+        <small>Boxes</small>
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- ADD USERS -->
+
+  <section class="add">
+
+    <h2>
+      إضافة حسابات
+    </h2>
+
+    <p>
+      ضع كل حساب في سطر أو افصل بينهم بمسافة.
+    </p>
+
+    <textarea
+      id="userInput"
+      autocomplete="off"
+      spellcheck="false"
+      placeholder="@user1&#10;@user2&#10;@user3"
+    ></textarea>
+
+    <button
+      id="add"
+      type="button"
+    >
+      ＋ إضافة الحسابات
+    </button>
+
+  </section>
+
+
+  <!-- CONTENT -->
+
+  <section class="layout">
+
+
+    <!-- BOXES -->
+
+    <section class="panel">
+
+      <div class="panel-title">
+
+        <h2>
+          📦 الصناديق
+        </h2>
+
+        <select id="sort">
+
+          <option value="time">
+            الأقرب للانتهاء
+          </option>
+
+          <option value="diamonds">
+            أعلى العملات
+          </option>
+
+          <option value="people">
+            أكثر أشخاص
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div
+        id="boxList"
+        class="box-list"
+      >
+
+        <div class="empty">
+          📦 لا توجد صناديق حاليًا
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ACCOUNTS -->
+
+    <section class="panel accounts">
+
+      <div class="panel-title">
+
+        <h2>
+          👤 الحسابات
+        </h2>
+
+        <span
+          id="accountStatus"
+        ></span>
+
+      </div>
+
+
+      <div
+        id="accountList"
+        class="account-list"
+      >
+
+        <div class="empty">
+          لا توجد حسابات مضافة
+        </div>
+
+      </div>
+
+    </section>
+
+  </section>
+
+</main>
+
+
+<script src="/app.js"></script>
+
+</body>
+
+</html>

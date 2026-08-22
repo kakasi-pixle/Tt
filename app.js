@@ -14,6 +14,10 @@ function escapeHTML(value) {
     .replace(/'/g, "&#039;");
 }
 
+/* =========================
+   ACCOUNTS
+========================= */
+
 function renderAccounts() {
   const list = $("accountList");
 
@@ -28,201 +32,303 @@ function renderAccounts() {
     return;
   }
 
-  list.innerHTML =
-    state.monitors.map(account => {
+  list.innerHTML = state.monitors.map(account => {
 
-      let status = "🟡 جاري الاتصال";
-      let className = "connecting";
+    let status = "🟡 جاري الاتصال";
+    let className = "connecting";
 
-      if (account.status === "live") {
-        status =
-          `🟢 LIVE — ${Number(
-            account.viewers || 0
-          ).toLocaleString()} مشاهد`;
-        className = "live";
-      }
+    if (account.status === "live") {
+      status =
+        `🟢 LIVE — ${Number(
+          account.viewers || 0
+        ).toLocaleString()} مشاهد`;
 
-      if (account.status === "offline") {
-        status = "⚪ Offline";
-        className = "offline";
-      }
+      className = "live";
+    }
 
-      if (account.status === "error") {
-        status = "🔴 فشل الاتصال";
-        className = "error";
-      }
+    if (account.status === "offline") {
+      status = "⚪ Offline";
+      className = "offline";
+    }
 
-      return `
-        <div class="account ${className}">
+    if (account.status === "error") {
+      status = "🔴 فشل الاتصال";
+      className = "error";
+    }
 
-          <div class="account-top">
+    return `
+      <div class="account ${className}">
 
-            <strong>
-              @${escapeHTML(
-                account.username
-              )}
-            </strong>
+        <div class="account-top">
 
-            <button
-              onclick="removeAccount('${escapeHTML(
-                account.username
-              )}')"
-            >
-              حذف
-            </button>
+          <strong>
+            @${escapeHTML(account.username)}
+          </strong>
 
-          </div>
-
-          <div class="account-status">
-            ${status}
-          </div>
-
-          ${
-            account.error
-              ? `
-                <div class="account-error">
-                  ❌ ${escapeHTML(
-                    account.error
-                  )}
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            account.roomId
-              ? `
-                <div class="room">
-                  Room ID:
-                  ${escapeHTML(
-                    account.roomId
-                  )}
-                </div>
-              `
-              : ""
-          }
+          <button
+            type="button"
+            class="remove-account"
+            data-username="${escapeHTML(account.username)}"
+          >
+            حذف
+          </button>
 
         </div>
-      `;
-    }).join("");
+
+        <div class="account-status">
+          ${status}
+        </div>
+
+        ${
+          account.error
+            ? `
+              <div class="account-error">
+                ❌ ${escapeHTML(account.error)}
+              </div>
+            `
+            : ""
+        }
+
+        ${
+          account.roomId
+            ? `
+              <div class="room">
+                Room ID:
+                ${escapeHTML(account.roomId)}
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+    `;
+  }).join("");
+
+  document
+    .querySelectorAll(".remove-account")
+    .forEach(button => {
+
+      button.addEventListener("click", () => {
+        removeAccount(
+          button.dataset.username
+        );
+      });
+
+    });
 }
 
-function renderBoxes() {
+/* =========================
+   BOXES
+========================= */
 
-  const list =
-    $("boxList");
+function renderBoxes() {
+  const list = $("boxList");
 
   if (!list) return;
 
   if (!state.boxes.length) {
-
     list.innerHTML = `
       <div class="empty">
         📦 لا توجد صناديق حاليًا
       </div>
     `;
-
     return;
   }
 
-  list.innerHTML =
-    state.boxes.map(box => {
+  list.innerHTML = state.boxes.map(box => {
 
-      const remaining =
-        box.remaining == null
-          ? "غير معروف"
-          : `${box.remaining} ثانية`;
+    const remaining =
+      box.remaining == null
+        ? "غير معروف"
+        : `${box.remaining} ثانية`;
 
-      return `
-        <div class="box">
+    return `
+      <div class="box">
 
-          <strong>
-            📦 @${escapeHTML(
-              box.username
-            )}
-          </strong>
+        <strong>
+          📦 @${escapeHTML(box.username)}
+        </strong>
 
-          <div>
-            💎 العملات:
-            ${Number(
-              box.diamonds || 0
-            ).toLocaleString()}
-          </div>
-
-          <div>
-            👥 الأشخاص:
-            ${Number(
-              box.people || 0
-            ).toLocaleString()}
-          </div>
-
-          <div>
-            ⏱️ ${remaining}
-          </div>
-
+        <div>
+          💎 العملات:
+          ${Number(
+            box.diamonds || 0
+          ).toLocaleString()}
         </div>
-      `;
-    }).join("");
+
+        <div>
+          👥 الأشخاص:
+          ${Number(
+            box.people || 0
+          ).toLocaleString()}
+        </div>
+
+        <div>
+          ⏱️ ${remaining}
+        </div>
+
+      </div>
+    `;
+  }).join("");
 }
+
+/* =========================
+   ADD ACCOUNT
+========================= */
 
 async function addAccounts() {
 
-  const input =
-    $("userInput");
+  const input = $("userInput");
 
-  const usernames =
-    input.value
-      .split(/[\s,\n]+/)
-      .map(x => x.trim())
-      .filter(Boolean);
+  if (!input) return;
+
+  const usernames = input.value
+    .split(/[\s,\n]+/)
+    .map(x => x.trim())
+    .filter(Boolean);
 
   if (!usernames.length) {
     return;
   }
 
-  try {
+  /*
+   * أظهر الحساب فورًا.
+   * لا ننتظر السيرفر.
+   */
+  for (const username of usernames) {
 
-    const response =
-      await fetch(
-        "/api/monitors",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body:
-            JSON.stringify({
-              usernames
-            })
-        }
+    const exists =
+      state.monitors.some(
+        m =>
+          m.username.toLowerCase() ===
+          username
+            .replace(/^@/, "")
+            .toLowerCase()
       );
 
-    const result =
-      await response.json();
+    if (!exists) {
+      state.monitors.push({
+        username:
+          username.replace(/^@/, ""),
+        status: "connecting",
+        viewers: 0,
+        roomId: null,
+        error: null
+      });
+    }
+  }
+
+  renderAccounts();
+
+  input.value = "";
+
+  try {
+
+    const response = await fetch(
+      "/api/monitors",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+          usernames
+        })
+      }
+    );
+
+    const text =
+      await response.text();
+
+    let result;
+
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = {
+        ok: false,
+        error: text
+      };
+    }
 
     if (!response.ok) {
 
-      alert(
+      setAccountError(
+        usernames,
         result.error ||
-        "حدث خطأ أثناء إضافة الحساب"
+        `HTTP ${response.status}`
       );
 
       return;
     }
 
-    input.value = "";
+    /*
+     * لو السيرفر أعاد خطأ
+     */
+    if (
+      result.errors &&
+      result.errors.length
+    ) {
+
+      for (const item of result.errors) {
+
+        setAccountError(
+          [item.username],
+          item.error
+        );
+
+      }
+    }
 
   } catch (error) {
 
-    alert(
+    setAccountError(
+      usernames,
       "تعذر الاتصال بالسيرفر: " +
       error.message
     );
   }
 }
+
+/* =========================
+   LOCAL ERROR
+========================= */
+
+function setAccountError(
+  usernames,
+  error
+) {
+
+  for (const username of usernames) {
+
+    const clean =
+      username
+        .replace(/^@/, "")
+        .toLowerCase();
+
+    const account =
+      state.monitors.find(
+        m =>
+          m.username.toLowerCase() ===
+          clean
+      );
+
+    if (account) {
+
+      account.status = "error";
+      account.error = error;
+    }
+  }
+
+  renderAccounts();
+}
+
+/* =========================
+   REMOVE
+========================= */
 
 async function removeAccount(
   username
@@ -230,35 +336,66 @@ async function removeAccount(
 
   try {
 
-    await fetch(
-      "/api/monitors/" +
-      encodeURIComponent(
-        username
-      ),
-      {
-        method: "DELETE"
-      }
-    );
+    const response =
+      await fetch(
+        "/api/monitors/" +
+        encodeURIComponent(username),
+        {
+          method: "DELETE"
+        }
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status}`
+      );
+    }
+
+    state.monitors =
+      state.monitors.filter(
+        m =>
+          m.username.toLowerCase() !==
+          username.toLowerCase()
+      );
+
+    renderAccounts();
 
   } catch (error) {
 
-    alert(
-      "فشل حذف الحساب: " +
-      error.message
-    );
+    const account =
+      state.monitors.find(
+        m =>
+          m.username.toLowerCase() ===
+          username.toLowerCase()
+      );
+
+    if (account) {
+      account.status = "error";
+      account.error =
+        "فشل الحذف: " +
+        error.message;
+    }
+
+    renderAccounts();
   }
 }
 
-window.removeAccount =
-  removeAccount;
+/* =========================
+   ADD BUTTON
+========================= */
 
-const addButton =
-  $("add");
+const addButton = $("add");
 
 if (addButton) {
-  addButton.onclick =
-    addAccounts;
+  addButton.addEventListener(
+    "click",
+    addAccounts
+  );
 }
+
+/* =========================
+   WEBSOCKET
+========================= */
 
 function connect() {
 
@@ -272,71 +409,135 @@ function connect() {
       `${protocol}//${location.host}`
     );
 
-  socket.onmessage =
-    event => {
+  socket.onopen = () => {
 
-      try {
+    console.log(
+      "WebSocket connected"
+    );
+  };
 
-        const message =
-          JSON.parse(
-            event.data
-          );
+  socket.onmessage = event => {
 
-        if (
-          message.type ===
-          "state"
+    try {
+
+      const message =
+        JSON.parse(event.data);
+
+      /*
+       * SERVER STATE
+       */
+      if (
+        message.type === "state"
+      ) {
+
+        const serverMonitors =
+          Array.isArray(
+            message.data?.monitors
+          )
+            ? message.data.monitors
+            : [];
+
+        /*
+         * لا نمسح الحسابات المحلية
+         * التي لم يصلها السيرفر بعد.
+         */
+        for (
+          const serverAccount
+          of serverMonitors
         ) {
 
-          state.monitors =
-            message.data?.monitors ||
-            [];
+          const index =
+            state.monitors.findIndex(
+              m =>
+                m.username.toLowerCase() ===
+                String(
+                  serverAccount.username
+                ).toLowerCase()
+            );
 
-          state.boxes =
-            message.data?.boxes ||
-            [];
+          if (index === -1) {
 
-          renderAccounts();
-          renderBoxes();
+            state.monitors.push(
+              serverAccount
+            );
 
+          } else {
+
+            state.monitors[index] =
+              serverAccount;
+          }
         }
 
-        if (
-          message.type ===
-          "box"
-        ) {
+        state.boxes =
+          Array.isArray(
+            message.data?.boxes
+          )
+            ? message.data.boxes
+            : [];
 
-          if (
-            message.box
-          ) {
+        renderAccounts();
+        renderBoxes();
+      }
 
+      /*
+       * NEW BOX
+       */
+      else if (
+        message.type === "box"
+      ) {
+
+        if (message.box) {
+
+          const exists =
+            state.boxes.some(
+              b =>
+                b.id ===
+                message.box.id
+            );
+
+          if (!exists) {
             state.boxes.push(
               message.box
             );
-
           }
-
-          renderBoxes();
         }
 
-        if (
-          message.type ===
-          "tick"
-        ) {
-
-          state.boxes =
-            message.boxes ||
-            [];
-
-          renderBoxes();
-        }
-
-      } catch (error) {
-
-        console.error(
-          error
-        );
+        renderBoxes();
       }
-    };
+
+      /*
+       * TIMER
+       */
+      else if (
+        message.type === "tick"
+      ) {
+
+        state.boxes =
+          Array.isArray(
+            message.boxes
+          )
+            ? message.boxes
+            : [];
+
+        renderBoxes();
+      }
+
+    } catch (error) {
+
+      console.error(
+        "WebSocket message error:",
+        error
+      );
+    }
+  };
+
+  socket.onerror = error => {
+
+    console.error(
+      "WebSocket error:",
+      error
+    );
+  };
 
   socket.onclose = () => {
 
@@ -347,4 +548,10 @@ function connect() {
   };
 }
 
+/* =========================
+   START
+========================= */
+
+renderAccounts();
+renderBoxes();
 connect();

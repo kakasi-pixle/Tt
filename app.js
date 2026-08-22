@@ -1,89 +1,106 @@
 const state = {
   monitors: [],
-  boxes: [],
-  sort: "time"
+  boxes: []
 };
 
-const $ = id =>
-  document.getElementById(id);
+const $ = id => document.getElementById(id);
 
-function esc(value) {
+function escapeHTML(value) {
   return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function render() {
-
-  $("users").textContent =
-    state.monitors.length;
-
-  $("live").textContent =
-    state.monitors.filter(
-      x => x.status === "live"
-    ).length;
-
-  $("boxes").textContent =
-    state.boxes.length;
-
-  renderAccounts();
-  renderBoxes();
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function renderAccounts() {
+  const list = $("accountList");
 
-  const el =
-    $("accountList");
+  if (!list) return;
 
   if (!state.monitors.length) {
-    el.innerHTML =
-      `<div class="empty">
-        لا توجد حسابات.
-      </div>`;
+    list.innerHTML = `
+      <div class="empty">
+        لا توجد حسابات مضافة
+      </div>
+    `;
     return;
   }
 
-  el.innerHTML =
-    state.monitors.map(m => {
+  list.innerHTML =
+    state.monitors.map(account => {
 
-      const status =
-        m.status === "live"
-          ? "live"
-          : m.status === "connecting"
-          ? "connecting"
-          : "offline";
+      let status = "🟡 جاري الاتصال";
+      let className = "connecting";
+
+      if (account.status === "live") {
+        status =
+          `🟢 LIVE — ${Number(
+            account.viewers || 0
+          ).toLocaleString()} مشاهد`;
+        className = "live";
+      }
+
+      if (account.status === "offline") {
+        status = "⚪ Offline";
+        className = "offline";
+      }
+
+      if (account.status === "error") {
+        status = "🔴 فشل الاتصال";
+        className = "error";
+      }
 
       return `
-        <div class="account">
+        <div class="account ${className}">
 
-          <div>
-            <span class="dot ${status}"></span>
+          <div class="account-top">
 
-            <b>
-              @${esc(m.username)}
-            </b>
+            <strong>
+              @${escapeHTML(
+                account.username
+              )}
+            </strong>
 
-            <small>
-              ${
-                m.status === "live"
-                  ? `LIVE • ${Number(
-                      m.viewers || 0
-                    ).toLocaleString()} viewers`
-                  : m.status
-              }
-            </small>
+            <button
+              onclick="removeAccount('${escapeHTML(
+                account.username
+              )}')"
+            >
+              حذف
+            </button>
+
           </div>
 
-          <button
-            onclick="removeUser('${esc(
-              m.username
-            )}')"
-          >
-            ×
-          </button>
+          <div class="account-status">
+            ${status}
+          </div>
+
+          ${
+            account.error
+              ? `
+                <div class="account-error">
+                  ❌ ${escapeHTML(
+                    account.error
+                  )}
+                </div>
+              `
+              : ""
+          }
+
+          ${
+            account.roomId
+              ? `
+                <div class="room">
+                  Room ID:
+                  ${escapeHTML(
+                    account.roomId
+                  )}
+                </div>
+              `
+              : ""
+          }
 
         </div>
       `;
@@ -92,190 +109,156 @@ function renderAccounts() {
 
 function renderBoxes() {
 
-  const el =
+  const list =
     $("boxList");
 
-  let list =
-    [...state.boxes];
+  if (!list) return;
 
-  if (state.sort === "diamonds") {
-    list.sort(
-      (a,b) =>
-        b.diamonds - a.diamonds
-    );
-  }
+  if (!state.boxes.length) {
 
-  else if (state.sort === "people") {
-    list.sort(
-      (a,b) =>
-        b.people - a.people
-    );
-  }
-
-  else {
-    list.sort((a,b) => {
-
-      if (
-        a.remaining === null
-      ) return 1;
-
-      if (
-        b.remaining === null
-      ) return -1;
-
-      return (
-        a.remaining -
-        b.remaining
-      );
-    });
-  }
-
-  if (!list.length) {
-
-    el.innerHTML =
-      `<div class="empty">
-        📡<br>
-        لا توجد صناديق حاليًا
-      </div>`;
+    list.innerHTML = `
+      <div class="empty">
+        📦 لا توجد صناديق حاليًا
+      </div>
+    `;
 
     return;
   }
 
-  el.innerHTML =
-    list.map(box => {
+  list.innerHTML =
+    state.boxes.map(box => {
 
-      const hasTimer =
-        box.remaining !== null;
-
-      const timer =
-        hasTimer
-          ? `${box.remaining}s`
-          : "غير متاح";
-
-      const source =
-        box.timeSource === "payload"
-          ? "وقت حقيقي من البيانات"
-          : "TikTok لم يرسل وقت الانتهاء";
+      const remaining =
+        box.remaining == null
+          ? "غير معروف"
+          : `${box.remaining} ثانية`;
 
       return `
-        <article class="box">
+        <div class="box">
 
-          <div class="box-main">
+          <strong>
+            📦 @${escapeHTML(
+              box.username
+            )}
+          </strong>
 
-            <div class="user">
-              📦
-              <div>
-                <b>
-                  @${esc(box.username)}
-                </b>
-
-                <small>
-                  ${
-                    box.sender
-                      ? "من " +
-                        esc(box.sender)
-                      : "Treasure Chest"
-                  }
-                </small>
-              </div>
-            </div>
-
-            <div class="metrics">
-
-              <span>
-                💎
-                ${Number(
-                  box.diamonds
-                ).toLocaleString()}
-              </span>
-
-              <span>
-                👥
-                ${Number(
-                  box.people
-                ).toLocaleString()}
-              </span>
-
-            </div>
-
+          <div>
+            💎 العملات:
+            ${Number(
+              box.diamonds || 0
+            ).toLocaleString()}
           </div>
 
-          <div class="timer">
-
-            <strong>
-              ${timer}
-            </strong>
-
-            <small>
-              ${esc(source)}
-            </small>
-
+          <div>
+            👥 الأشخاص:
+            ${Number(
+              box.people || 0
+            ).toLocaleString()}
           </div>
 
-        </article>
+          <div>
+            ⏱️ ${remaining}
+          </div>
+
+        </div>
       `;
     }).join("");
 }
 
-async function addUsers() {
+async function addAccounts() {
+
+  const input =
+    $("userInput");
 
   const usernames =
-    $("userInput")
-      .value
+    input.value
       .split(/[\s,\n]+/)
+      .map(x => x.trim())
       .filter(Boolean);
 
   if (!usernames.length) {
     return;
   }
 
-  await fetch(
-    "/api/monitors",
-    {
-      method: "POST",
+  try {
 
-      headers: {
-        "Content-Type":
-          "application/json"
-      },
+    const response =
+      await fetch(
+        "/api/monitors",
+        {
+          method: "POST",
 
-      body: JSON.stringify({
-        usernames
-      })
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              usernames
+            })
+        }
+      );
+
+    const result =
+      await response.json();
+
+    if (!response.ok) {
+
+      alert(
+        result.error ||
+        "حدث خطأ أثناء إضافة الحساب"
+      );
+
+      return;
     }
-  );
 
-  $("userInput").value = "";
+    input.value = "";
+
+  } catch (error) {
+
+    alert(
+      "تعذر الاتصال بالسيرفر: " +
+      error.message
+    );
+  }
 }
 
-async function removeUser(username) {
+async function removeAccount(
+  username
+) {
 
-  await fetch(
-    `/api/monitors/${encodeURIComponent(
-      username
-    )}`,
-    {
-      method: "DELETE"
-    }
-  );
+  try {
+
+    await fetch(
+      "/api/monitors/" +
+      encodeURIComponent(
+        username
+      ),
+      {
+        method: "DELETE"
+      }
+    );
+
+  } catch (error) {
+
+    alert(
+      "فشل حذف الحساب: " +
+      error.message
+    );
+  }
 }
 
-$("add")
-  .addEventListener(
-    "click",
-    addUsers
-  );
+window.removeAccount =
+  removeAccount;
 
-$("sort")
-  .addEventListener(
-    "change",
-    e => {
-      state.sort =
-        e.target.value;
+const addButton =
+  $("add");
 
-      renderBoxes();
-    }
-  );
+if (addButton) {
+  addButton.onclick =
+    addAccounts;
+}
 
 function connect() {
 
@@ -284,72 +267,83 @@ function connect() {
       ? "wss:"
       : "ws:";
 
-  const ws =
+  const socket =
     new WebSocket(
       `${protocol}//${location.host}`
     );
 
-  ws.onopen = () => {
-    $("connection").textContent =
-      "● Connected";
+  socket.onmessage =
+    event => {
 
-    $("connection")
-      .className = "connected";
-  };
+      try {
 
-  ws.onclose = () => {
-    $("connection").textContent =
-      "● Reconnecting...";
+        const message =
+          JSON.parse(
+            event.data
+          );
 
-    $("connection")
-      .className = "";
+        if (
+          message.type ===
+          "state"
+        ) {
+
+          state.monitors =
+            message.data?.monitors ||
+            [];
+
+          state.boxes =
+            message.data?.boxes ||
+            [];
+
+          renderAccounts();
+          renderBoxes();
+
+        }
+
+        if (
+          message.type ===
+          "box"
+        ) {
+
+          if (
+            message.box
+          ) {
+
+            state.boxes.push(
+              message.box
+            );
+
+          }
+
+          renderBoxes();
+        }
+
+        if (
+          message.type ===
+          "tick"
+        ) {
+
+          state.boxes =
+            message.boxes ||
+            [];
+
+          renderBoxes();
+        }
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+      }
+    };
+
+  socket.onclose = () => {
 
     setTimeout(
       connect,
       2000
     );
-  };
-
-  ws.onmessage = event => {
-
-    const message =
-      JSON.parse(event.data);
-
-    if (
-      message.type === "state"
-    ) {
-
-      state.monitors =
-        message.data.monitors || [];
-
-      state.boxes =
-        message.data.boxes || [];
-
-      render();
-    }
-
-    if (
-      message.type === "box"
-    ) {
-
-      state.boxes.push(
-        message.box
-      );
-
-      render();
-    }
-
-    if (
-      message.type === "tick"
-    ) {
-
-      state.boxes =
-        message.boxes || [];
-
-      renderBoxes();
-      $("boxes").textContent =
-        state.boxes.length;
-    }
   };
 }
 

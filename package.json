@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node server.mjs"
   },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "express": "^5.1.0",
     "tiktok-live-connector": "^2.4.0",

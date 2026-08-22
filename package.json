@@ -1,17 +1,17 @@
 {
-  "name": "tiktok-live-box-monitor",
-  "version": "1.0.0",
+  "name": "tiktok-live-monitor",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=20"
-  },
   "scripts": {
     "start": "node server.mjs"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "express": "^5.1.0",
-    "tiktok-live-connector": "^2.4.4",
+    "tiktok-live-connector": "^2.4.0",
     "ws": "^8.18.3"
   }
 }
